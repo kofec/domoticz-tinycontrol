@@ -86,7 +86,6 @@
 import Domoticz
 import sys
 import os
-import argparse
 
 # Python framework in Domoticz do not include OS dependent path
 #
@@ -169,7 +168,7 @@ class BasePlugin:
             Domoticz.Debugging(1)
             DumpConfigToLog()
 
-        Domoticz.Heartbeat(20)
+        Domoticz.Heartbeat(60)
 
         self.config = {
             "description": "Domoticz",
@@ -182,13 +181,6 @@ class BasePlugin:
         Domoticz.Log("Connecting to: " + Parameters["Address"] + ":" + Parameters["Port"])
 
         self.isAlive()
-
-        #        if (self.isConnected == True):
-        #            if Parameters["Mode6"] == "Debug":
-        #                Domoticz.Log("Devices are connected - Initialisation")
-        #            UpdateDevice(self.UNIT_STATUS_REMOTE, 1, 'Enigma2 Available')
-        #            self.EnigmaDetails()
-        #            UpdateDevice(self.UNIT_POWER_CONTROL, 40, '40')
 
         urll = 'http://' + str(Parameters["Address"]) + '/st0.xml'
         username = str(Parameters["Mode1"])
@@ -282,35 +274,42 @@ class BasePlugin:
     def onHeartbeat(self):
         Domoticz.Log("onHeartbeat called")
         self.isAlive()
-#        if (self.isConnected == True):
-#            urll = 'http://' + str(Parameters["Address"]) + '/web/powerstate?'
-#            username = str(Parameters["Mode1"])
-#            password = str(Parameters["Mode2"])
-#            # create a password manager
-#            passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-#            # Add the username and password.
-#            # If we knew the realm, we could use it instead of None.
-#            passman.add_password(None, urll, username, password)
-#
-#            authhandler = urllib.request.HTTPBasicAuthHandler(passman)
-#            # create "opener" (OpenerDirector instance)
-#            opener = urllib.request.build_opener(authhandler)
-#            # use the opener to fetch a URL
-#            pagehandle = opener.open(urll)
-#            data = pagehandle.read()
-#            pagehandle.close()
-#            data = xmltodict.parse(data)
-#            data = str(data["e2powerstate"]["e2instandby"])
-#            if Parameters["Mode6"] == "Debug":
-#                Domoticz.Log('data["e2powerstate"]["e2instandby"] => '+str(data))
-#            if data == "false":
-#                UpdateDevice(self.UNIT_POWER_CONTROL, 40, '40')
-#            else:
-#                UpdateDevice(self.UNIT_POWER_CONTROL, 10, '10')
-#            UpdateDevice(self.UNIT_STATUS_REMOTE, 1, 'Enigma2 Available')
-#        else:
-#            UpdateDevice(self.UNIT_STATUS_REMOTE, 0, 'Enigma2 offline')
-#            UpdateDevice(self.UNIT_POWER_CONTROL, 0, '0')
+        if (self.isConnected == True):
+            urll = 'http://' + str(Parameters["Address"]) + '/st0.xml'
+            username = str(Parameters["Mode1"])
+            password = str(Parameters["Mode2"])
+            if Parameters["Mode6"] == "Debug":
+                Domoticz.Log("Connect to website: " + str(urll) + " user: " + username + " password: " + password)
+            # create a password manager
+            passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
+            # Add the username and password.
+            # If we knew the realm, we could use it instead of None.
+            passman.add_password(None, urll, username, password)
+            authhandler = urllib.request.HTTPBasicAuthHandler(passman)
+            # create "opener" (OpenerDirector instance)
+            opener = urllib.request.build_opener(authhandler)
+            # use the opener to fetch a URL
+            pagehandle = opener.open(urll)
+            st0 = pagehandle.read()
+            pagehandle.close()
+            st0 = xmltodict.parse(st0)
+            st0 = st0['response']
+
+            if Parameters["Mode6"] == "Debug":
+                Domoticz.Log("st0.xml :")
+                for x in st0.keys():
+                    Domoticz.Log(str(x) + " => " + str(st0[x]))
+
+            for x in Parameters["Mode3"].split(';'):
+                if int(list(st0.keys()).index(x)+1) in Devices:
+                    if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
+                        UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(float(st0[x])/10))
+                    elif self.KEY[x] == "Switch":
+                        UpdateDevice(list(st0.keys()).index(x) + 1, int(st0[x]), str(st0[x]))
+
+                    if Parameters["Mode6"] == "Debug":
+                        Domoticz.Log(
+                            "Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(float(st0[x])))
         return True
 
     def onConnect(self, Status, Description):
@@ -403,7 +402,7 @@ def DumpConfigToLog():
     return
 
 
-def UpdateDevice(Unit, nValue, sValue):
+def UpdateDevice(Unit: object, nValue: object, sValue: object) -> object:
     # Make sure that the Domoticz device still exists (they can be deleted) before updating it 
     if (Unit in Devices):
         if (Devices[Unit].nValue != nValue) or (Devices[Unit].sValue != sValue):
