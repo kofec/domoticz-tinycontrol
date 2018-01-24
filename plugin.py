@@ -1,11 +1,11 @@
 #           Enigma2 Python Plugin for Domoticz
 #
 #
-#           Dev. Platform : Win10 x64 & Py 3.5.3 x86
+#           Dev. Platform : rasbian armv6l & Py 3.5.3
 #
 #           Author:     kofec, 2017
 #           1.0.0:  initial release
-#
+#           1.0.2:  change to external script tinycontrol
 #
 #           Resposne for Lan Controler v1
 #           ./tinycontrol.py 192.168.1.100
@@ -65,13 +65,19 @@
 # Below is what will be displayed in Domoticz GUI under HW
 #
 """
-<plugin key="LanControler" name="Lan Controler from tinycontrol.pl" author="kofec" version="1.0.0" wikilink="no" externallink="http://tinycontrol.pl/en/lan-controler-v2/">
+<plugin key="LanControler" name="Lan Controler from tinycontrol.pl" author="kofec" version="1.0.2" wikilink="no" externallink="http://tinycontrol.pl/en/lan-controler-v2/">
     <params>
         <param field="Address" label="IP Address" width="200px" required="true" default="127.0.0.1"/>
         <param field="Port" label="Port" width="40px" required="true" default="80"/>
         <param field="Mode1" label="Username" width="200px" required="false" default="admin"/>
         <param field="Mode2" label="Password" width="200px" required="false" default="admin"/>
         <param field="Mode3" label="Which devices should be tracked" width="400px" default=""/>
+        <param field="Mode5" label="Reverse out state" width="75px">
+            <options>
+                <option label="True" value="ReverseOutStateEnable"/>
+                <option label="False" value="ReverseOutStateDisable"  default="False" />
+            </options>
+        </param>
         <param field="Mode6" label="Debug" width="75px">
             <options>
                 <option label="True" value="Debug"/>
@@ -86,79 +92,82 @@
 import Domoticz
 import sys
 import os
+import socket
+import subprocess
 
 # Python framework in Domoticz do not include OS dependent path
 #
+from pathlib import Path
+pathOfPackages='/usr/local/lib/python3.5/dist-packages'
 
-if sys.platform.startswith('linux'):
-    # linux specific code here#
+if Path(pathOfPackages).exists():
     sys.path.append('/usr/local/lib/python3.5/dist-packages')
-elif sys.platform.startswith('darwin'):
-    # mac
-    sys.path.append(os.path.dirname(os.__file__) + '/site-packages')
-elif sys.platform.startswith('win32'):
-    #  win specific
-    sys.path.append(os.path.dirname(os.__file__) + '\site-packages')
-
-import urllib.request
-import socket
-import xmltodict
+    import xmltodict
+else:
+    Print("It can be an issue with import package xmltodict")
+    Print("Find where is located package xmltodict and correct variable: pathOfPackages")
+    Print("pathOfPackages:", pathOfPackages)
+    import xmltodict
 
 socket.setdefaulttimeout(2)
+
 
 class BasePlugin:
     # Connection Status
     isConnected = False
 
-# known and supported keys
+    # known and supported keys
     KEY = {
-        "out0"          : "Switch",          # Relay/Switch
-        "out1"          : "Switch",          # Relay/Switch
-        "out2"          : "Switch",          # Relay/Switch
-        "out3"          : "Switch",          # Relay/Switch
-        "out4"          : "Switch",          # Relay/Switch
-        "out5"          : "Switch",          # Relay/Switch
-        "ia0"           : "Temperature",    # Board Temperature
-        "ia1"           : "Voltage",        # VCC SUPPLY
-        "ia7"           : "Temperature",    # ds18b20 Temperature
-        "ia8"           : "Temperature",    # ds18b20 Temperature
-        "ia9"           : "Temperature",    # ds18b20 Temperature
-        "ia10"          : "Temperature",    # ds18b20 Temperature
-        "ia11"          : "Temperature",    # ds18b20 Temperature
-        "ia12"          : "Temperature"     # ds18b20 Temperature
+        "out0": "Switch",  # Relay/Switch
+        "out1": "Switch",  # Relay/Switch
+        "out2": "Switch",  # Relay/Switch
+        "out3": "Switch",  # Relay/Switch
+        "out4": "Switch",  # Relay/Switch
+        "out5": "Switch",  # Relay/Switch
+        "ia0": "Temperature",  # Board Temperature
+        "ia1": "Voltage",  # VCC SUPPLY
+        "ia4": "Temperature",  # PT1000 Temperature
+        "ia7": "Temperature",  # ds18b20 Temperature
+        "ia8": "Temperature",  # ds18b20 Temperature
+        "ia9": "Temperature",  # ds18b20 Temperature
+        "ia10": "Temperature",  # ds18b20 Temperature
+        "ia11": "Temperature",  # ds18b20 Temperature
+        "ia12": "Temperature"  # ds18b20 Temperature
 
     }
     # resolve issue when cannot take name from response - search names if doesn't exist take key
     NAMES = {
-        "ia0"           : "Board Temperature",  # Board Temperature
-        "ia1"           : "VCC SUPPLY",     # VCC SUPPLY
-        "ia7"           : "d0",             # ds18b20 Temperature
-        "ia8"           : "d1",             # ds18b20 Temperature
-        "ia9"           : "d2",             # ds18b20 Temperature
-        "ia10"          : "d3",             # ds18b20 Temperature
-        "ia11"          : "d4",             # ds18b20 Temperature
-        "ia12"          : "d5"              # ds18b20 Temperature
+        "ia0": "Board Temperature",  # Board Temperature
+        "ia1": "VCC SUPPLY",  # VCC SUPPLY
+        "ia4": "PT1000",  # PT1000 Temperature
+        "ia7": "d0",  # ds18b20 Temperature
+        "ia8": "d1",  # ds18b20 Temperature
+        "ia9": "d2",  # ds18b20 Temperature
+        "ia10": "d3",  # ds18b20 Temperature
+        "ia11": "d4",  # ds18b20 Temperature
+        "ia12": "d5"  # ds18b20 Temperature
     }
 
     NAMES_v1 = {
-        "out0"          : "r5",             # Relay/Switch
-        "out1"          : "r6",             # Relay/Switch
-        "out2"          : "r7",             # Relay/Switch
-        "out3"          : "r8",             # Relay/Switch
-        "out4"          : "r9",             # Relay/Switch
-        "out5"          : "r10",            # Relay/Switch
+        "out0": "r5",  # Relay/Switch
+        "out1": "r6",  # Relay/Switch
+        "out2": "r7",  # Relay/Switch
+        "out3": "r8",  # Relay/Switch
+        "out4": "r9",  # Relay/Switch
+        "out5": "r10",  # Relay/Switch
     }
 
     NAMES_v2 = {
-        "out0"          : "r6",             # Relay/Switch
-        "out1"          : "r7",             # Relay/Switch
-        "out2"          : "r8",             # Relay/Switch
-        "out3"          : "r9",             # Relay/Switch
-        "out4"          : "r10",            # Relay/Switch
-        "out5"          : "r11",            # Relay/Switch
+        "out0": "r6",  # Relay/Switch
+        "out1": "r7",  # Relay/Switch
+        "out2": "r8",  # Relay/Switch
+        "out3": "r9",  # Relay/Switch
+        "out4": "r10",  # Relay/Switch
+        "out5": "r11",  # Relay/Switch
     }
 
     config = ''
+
     # Domoticz call back functions
     #
     # Executed once at HW creation/ update. Can create up to 255 devices.
@@ -182,23 +191,17 @@ class BasePlugin:
 
         self.isAlive()
 
-        urll = 'http://' + str(Parameters["Address"]) + '/st0.xml'
         username = str(Parameters["Mode1"])
         password = str(Parameters["Mode2"])
+
         if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("Connect to website: " + str(urll) + " user: " + username + " password: " + password)
-        # create a password manager
-        passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-        # Add the username and password.
-        # If we knew the realm, we could use it instead of None.
-        passman.add_password(None, urll, username, password)
-        authhandler = urllib.request.HTTPBasicAuthHandler(passman)
-        # create "opener" (OpenerDirector instance)
-        opener = urllib.request.build_opener(authhandler)
-        # use the opener to fetch a URL
-        pagehandle = opener.open(urll)
-        st0 = pagehandle.read()
-        pagehandle.close()
+            Domoticz.Log("Connect via script tinycontrol.py to website: " + str(
+                Parameters["Address"]) + " user: " + username + " password: " + password)
+        st0 = subprocess.check_output(['bash', '-c', './tinycontrol.py ' + str(
+            Parameters["Address"]) + ' --user ' + username + ' --password ' + password], cwd=Parameters["HomeFolder"])
+        st0 = str(st0.decode('utf-8'))
+        if Parameters["Mode6"] == 'Debug':
+            Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
         st0 = xmltodict.parse(st0)
         st0 = st0['response']
 
@@ -207,21 +210,25 @@ class BasePlugin:
             for x in st0.keys():
                 Domoticz.Log(str(x) + " => " + str(st0[x]))
 
-        urll = 'http://' + str(Parameters["Address"]) + '/st2.xml'
-        # create a password manager
-        passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-        # Add the username and password.
-        # If we knew the realm, we could use it instead of None.
-        passman.add_password(None, urll, username, password)
-        authhandler = urllib.request.HTTPBasicAuthHandler(passman)
-        # create "opener" (OpenerDirector instance)
-        opener = urllib.request.build_opener(authhandler)
-        # use the opener to fetch a URL
-        pagehandle = opener.open(urll)
-        st2 = pagehandle.read()
-        pagehandle.close()
+        if Parameters["Mode6"] == "Debug":
+            Domoticz.Log("Connect via script tinycontrol.py to website: " + str(
+                Parameters["Address"]) + " user: " + username + " password: " + password)
+        st2 = subprocess.check_output(['bash', '-c', './tinycontrol.py ' + str(
+            Parameters["Address"]) + ' --user ' + username + ' --password ' + password + ' --st2'],
+                                      cwd=Parameters["HomeFolder"])
+        st2 = str(st2.decode('utf-8'))
+        if Parameters["Mode6"] == 'Debug':
+            Domoticz.Debug(st2[:30] + " .... " + st2[-30:])
         st2 = xmltodict.parse(st2)
         st2 = st2['response']
+
+        if Parameters["Mode6"] == "Debug":
+            Domoticz.Log("st2.xml :")
+            for x in st2.keys():
+                Domoticz.Log(str(x) + " => " + str(st2[x]))
+
+        for i, x in enumerate(st2['d'].split("*")):
+            st2['d' + str(i)] = x
 
         if Parameters["Mode6"] == "Debug":
             Domoticz.Log("st2.xml :")
@@ -243,11 +250,12 @@ class BasePlugin:
                 Domoticz.Log(str(x) + " => " + str(self.NAMES[x]))
 
         for x in Parameters["Mode3"].split(';'):
-            if x in self.NAMES.keys() and x in self.KEY and list(st0.keys()).index(x)+1 not in Devices:
-                Domoticz.Device(Name=self.NAMES[x], Unit=list(st0.keys()).index(x)+1, TypeName=self.KEY[x]).Create()
+            if x in self.NAMES.keys() and x in self.KEY and list(st0.keys()).index(x) + 1 not in Devices:
+                Domoticz.Device(Name=self.NAMES[x], Unit=list(st0.keys()).index(x) + 1, TypeName=self.KEY[x]).Create()
                 if Parameters["Mode6"] == "Debug":
-                    Domoticz.Log("Name=" + self.NAMES[x] + " Unit=" + str(list(st0.keys()).index(x)+1) + " TypeName=" + self.KEY[x])
-
+                    Domoticz.Log(
+                        "Name=" + self.NAMES[x] + " Unit=" + str(list(st0.keys()).index(x) + 1) + " TypeName=" +
+                        self.KEY[x])
 
         return True
 
@@ -268,30 +276,26 @@ class BasePlugin:
 
     # executed each time we click on device thru domoticz GUI
     def onCommand(self, Unit, Command, Level, Hue):
-        Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level) + ", Connected: " + str(self.isConnected))
+        Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(
+            Level) + ", Connected: " + str(self.isConnected))
         return
 
     def onHeartbeat(self):
         Domoticz.Log("onHeartbeat called")
         self.isAlive()
         if (self.isConnected == True):
-            urll = 'http://' + str(Parameters["Address"]) + '/st0.xml'
             username = str(Parameters["Mode1"])
             password = str(Parameters["Mode2"])
+
             if Parameters["Mode6"] == "Debug":
-                Domoticz.Log("Connect to website: " + str(urll) + " user: " + username + " password: " + password)
-            # create a password manager
-            passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-            # Add the username and password.
-            # If we knew the realm, we could use it instead of None.
-            passman.add_password(None, urll, username, password)
-            authhandler = urllib.request.HTTPBasicAuthHandler(passman)
-            # create "opener" (OpenerDirector instance)
-            opener = urllib.request.build_opener(authhandler)
-            # use the opener to fetch a URL
-            pagehandle = opener.open(urll)
-            st0 = pagehandle.read()
-            pagehandle.close()
+                Domoticz.Log("Connect via script tinycontrol.py to website: " + str(
+                    Parameters["Address"]) + " user: " + username + " password: " + password)
+            st0 = subprocess.check_output(['bash', '-c', './tinycontrol.py ' + str(
+                Parameters["Address"]) + ' --user ' + username + ' --password ' + password],
+                                          cwd=Parameters["HomeFolder"])
+            st0 = str(st0.decode('utf-8'))
+            if Parameters["Mode6"] == 'Debug':
+                Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
             st0 = xmltodict.parse(st0)
             st0 = st0['response']
 
@@ -301,15 +305,20 @@ class BasePlugin:
                     Domoticz.Log(str(x) + " => " + str(st0[x]))
 
             for x in Parameters["Mode3"].split(';'):
-                if int(list(st0.keys()).index(x)+1) in Devices:
+                if int(list(st0.keys()).index(x) + 1) in Devices:
                     if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
-                        UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(float(st0[x])/10))
+                        UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(float(st0[x]) / 10))
                     elif self.KEY[x] == "Switch":
                         UpdateDevice(list(st0.keys()).index(x) + 1, int(st0[x]), str(st0[x]))
 
                     if Parameters["Mode6"] == "Debug":
-                        Domoticz.Log(
-                            "Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(float(st0[x])))
+                        if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
+                            Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
+                                float(st0[x]) / 10))
+                        elif self.KEY[x] == "Switch":
+                            Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
+                                float(st0[x])))
+
         return True
 
     def onConnect(self, Status, Description):
