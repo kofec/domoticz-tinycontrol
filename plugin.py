@@ -98,7 +98,8 @@ import subprocess
 # Python framework in Domoticz do not include OS dependent path
 #
 from pathlib import Path
-pathOfPackages='/usr/local/lib/python3.5/dist-packages'
+
+pathOfPackages = '/usr/local/lib/python3.5/dist-packages'
 
 if Path(pathOfPackages).exists():
     sys.path.append('/usr/local/lib/python3.5/dist-packages')
@@ -278,12 +279,65 @@ class BasePlugin:
     def onCommand(self, Unit, Command, Level, Hue):
         Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(
             Level) + ", Connected: " + str(self.isConnected))
+
+        self.isAlive()
+
+        username = str(Parameters["Mode1"])
+        password = str(Parameters["Mode2"])
+
+        if Parameters["Mode6"] == "Debug":
+            Domoticz.Log("Connect via script tinycontrol.py to website: " + str(
+                Parameters["Address"]) + " user: " + username + " password: " + password)
+        st0 = subprocess.check_output(['bash', '-c', './tinycontrol.py ' + str(
+            Parameters["Address"]) + ' --user ' + username + ' --password ' + password], cwd=Parameters["HomeFolder"])
+        st0 = str(st0.decode('utf-8'))
+        if Parameters["Mode6"] == 'Debug':
+            Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
+        st0 = xmltodict.parse(st0)
+        st0 = st0['response']
+
+        if str(list(st0.keys())[Unit - 1])[:-1] == "out":
+            if Parameters["Mode6"] == "Debug":
+                Domoticz.Log("Connect via script tinycontrol.py to website: " + str(
+                    Parameters["Address"]) + " user: " + username + " password: " + password + " --out " + str(
+                    list(st0.keys())[Unit - 1])[-1:] + " " + str(Command).upper())
+            st0 = subprocess.check_output(['bash', '-c', './tinycontrol.py ' + str(
+                Parameters["Address"]) + ' --user ' + username + ' --password ' + password + ' --out ' + str(
+                list(st0.keys())[Unit - 1])[-1:] + ' ' + str(Command).upper()], cwd=Parameters["HomeFolder"])
+            st0 = str(st0.decode('utf-8'))
+            if Parameters["Mode6"] == 'Debug':
+                Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
+                st0 = xmltodict.parse(st0)
+                st0 = st0['response']
+        else:
+            Domoticz.Log("It is not out*: " + str(list(st0.keys())[Unit - 1]) + ' ' + str(Command).upper())
+
+        if Parameters["Mode6"] == "Debug":
+            Domoticz.Log("st0.xml :")
+            for x in st0.keys():
+                Domoticz.Log(str(x) + " => " + str(st0[x]))
+
+        for x in Parameters["Mode3"].split(';'):
+            if int(list(st0.keys()).index(x) + 1) in Devices:
+                if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
+                    UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(float(st0[x]) / 10))
+                elif self.KEY[x] == "Switch":
+                    UpdateDevice(list(st0.keys()).index(x) + 1, int(st0[x]), str(st0[x]))
+
+                if Parameters["Mode6"] == "Debug":
+                    if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
+                        Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
+                            float(st0[x]) / 10))
+                    elif self.KEY[x] == "Switch":
+                        Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
+                            float(st0[x])))
+
         return
 
     def onHeartbeat(self):
         Domoticz.Log("onHeartbeat called")
         self.isAlive()
-        if (self.isConnected == True):
+        if self.isConnected:
             username = str(Parameters["Mode1"])
             password = str(Parameters["Mode2"])
 
