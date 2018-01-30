@@ -39,7 +39,7 @@ Restart Domoticz
 * Go to Setup > Hardware and create new Hardware with type: Domoticz-Enigma2
 * Enter name (it's up to you), user name and password if define. If not leave it blank
 * Fild "Which devices should be tracked:" you should put device which you would like to monitor. eg: ia0;ia1;ia4;ia7;ia8;out0
-ia0 - Board temaperature, ia1 - board voltage, ia4 - PT1000, ia7 i ia8 - DS18B20
+* Description above example: ia0 - Board temaperature, ia1 - board voltage, ia4 - PT1000, ia7 i ia8 - DS18B20
 
 ## Update
 ```
