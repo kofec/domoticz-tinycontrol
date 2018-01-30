@@ -28,7 +28,7 @@ usage: tinycontrol.py [-h] [--user USER] [--password PASSWORD] [--st2]
 
 ```
 * You will probably need install python package "xmltodict" like in issue https://github.com/kofec/domoticz-tinycontrol/issues/1
-* and check where it was installed 
+* and check where it was installed and in file plugin.py find and correct if needed 
 if sys.platform.startswith('linux'):
 linux specific code here
 sys.path.append('/usr/local/lib/python3.5/dist-packages')
