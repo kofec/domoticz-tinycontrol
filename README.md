@@ -11,7 +11,7 @@ A Python plugin for Domoticz to monitor and control TINYCONTROL device
 * Get plugin data into DOMOTICZ/plugins directory
 ```
 cd YOUR_DOMOTICZ_PATH/plugins
-git clone https://github.com/kofec/Domoticz-Enigma2
+git clone https://github.com/kofec/domoticz-tinycontrol
 ```
 First use script "tinycontrol.py"
 
@@ -38,7 +38,7 @@ ia0 - Board temaperature, ia1 - board voltage, ia4 - PT1000, ia7 i ia8 - DS18B20
 
 ## Update
 ```
-cd YOUR_DOMOTICZ_PATH/plugins/Domoticz-Enigma2
+cd YOUR_DOMOTICZ_PATH/plugins/domoticz-tinycontrol
 git pull
 ```
 * Restart Domoticz
