@@ -1,19 +1,11 @@
 #!/usr/bin/python3
 import urllib.request
 import argparse
+import subprocess
 import sys
-
+import os
 from pathlib import Path
 pathOfPackages='/usr/local/lib/python3.5/dist-packages'
-
-if Path(pathOfPackages).exists():
-    sys.path.append('/usr/local/lib/python3.5/dist-packages')
-    import xmltodict
-else:
-    Print("It can be an issue with import package xmltodict")
-    Print("Find where is located package xmltodict and correct variable: pathOfPackages")
-    Print("pathOfPackages:", pathOfPackages)
-    import xmltodict
 
 parser = argparse.ArgumentParser(description='Comunicate with Tinycontrol.')
 parser.add_argument('IPaddress', help='IP address of TinyControl' )
@@ -27,8 +19,45 @@ args = parser.parse_args()
 if args.debug:
     print(args)
 
+if args.debug:
+    print("Current paths where search for modules: " + str(sys.path))
+
+if Path(pathOfPackages).exists():
+    if args.debug:
+        print("Adding path: " + pathOfPackages)
+    sys.path.append(pathOfPackages)
+    import xmltodict
+else:
+    print("It can be an issue with import package xmltodict")
+    print("Find where is located package xmltodict and correct variable: pathOfPackages")
+    print("pathOfPackages:", pathOfPackages)
+    import xmltodict
+
 username = args.user
 password = args.password
+
+try:
+    subprocess.call(["bash", "--version"])
+except OSError as e:
+    if e.errno == os.errno.ENOENT:
+        print("Cannot find wget command")
+        exit()
+    else:
+        print("Error when checking if wget exist")
+        raise
+
+try:
+    subprocess.call(["wget", "--version"])
+except OSError as e:
+    if e.errno == os.errno.ENOENT:
+        print("Cannot find wget command")
+        exit()
+    else:
+        print("Error when checking if wget exist")
+        raise
+
+if args.debug:
+    print(subprocess.check_output(['bash', '-c', 'wget --version']))
 
 if args.out:
     if int(args.out[0]) in range(6) and (args.out[1] in ["OFF", "ON"]):

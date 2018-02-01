@@ -72,12 +72,6 @@
         <param field="Mode1" label="Username" width="200px" required="false" default="admin"/>
         <param field="Mode2" label="Password" width="200px" required="false" default="admin"/>
         <param field="Mode3" label="Which devices should be tracked" width="400px" default=""/>
-        <param field="Mode5" label="Reverse out state" width="75px">
-            <options>
-                <option label="True" value="ReverseOutStateEnable"/>
-                <option label="False" value="ReverseOutStateDisable"  default="False" />
-            </options>
-        </param>
         <param field="Mode6" label="Debug" width="75px">
             <options>
                 <option label="True" value="Debug"/>
@@ -102,12 +96,12 @@ from pathlib import Path
 pathOfPackages = '/usr/local/lib/python3.5/dist-packages'
 
 if Path(pathOfPackages).exists():
-    sys.path.append('/usr/local/lib/python3.5/dist-packages')
+    sys.path.append(pathOfPackages)
     import xmltodict
 else:
-    Print("It can be an issue with import package xmltodict")
-    Print("Find where is located package xmltodict and correct variable: pathOfPackages")
-    Print("pathOfPackages:", pathOfPackages)
+    Domoticz.Log("It can be an issue with import package xmltodict")
+    Domoticz.Log("Find where is located package xmltodict and correct variable: pathOfPackages")
+    Domoticz.Log("pathOfPackages:", pathOfPackages)
     import xmltodict
 
 socket.setdefaulttimeout(2)
@@ -116,6 +110,7 @@ socket.setdefaulttimeout(2)
 class BasePlugin:
     # Connection Status
     isConnected = False
+    ReverseOutStateDisable = True
 
     # known and supported keys
     KEY = {
@@ -196,10 +191,10 @@ class BasePlugin:
         password = str(Parameters["Mode2"])
 
         if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("Connect via script tinycontrol.py to website: " + str(
+            Domoticz.Log("Connect via wget to website: " + str(
                 Parameters["Address"]) + " user: " + username + " password: " + password)
-        st0 = subprocess.check_output(['bash', '-c', './tinycontrol.py ' + str(
-            Parameters["Address"]) + ' --user ' + username + ' --password ' + password], cwd=Parameters["HomeFolder"])
+        st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - http://' + username + ':' + password + '@' + str(
+            Parameters["Address"]) + '/st0.xml'], cwd=Parameters["HomeFolder"])
         st0 = str(st0.decode('utf-8'))
         if Parameters["Mode6"] == 'Debug':
             Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
@@ -212,11 +207,10 @@ class BasePlugin:
                 Domoticz.Log(str(x) + " => " + str(st0[x]))
 
         if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("Connect via script tinycontrol.py to website: " + str(
+            Domoticz.Log("Connect via wget to website: " + str(
                 Parameters["Address"]) + " user: " + username + " password: " + password)
-        st2 = subprocess.check_output(['bash', '-c', './tinycontrol.py ' + str(
-            Parameters["Address"]) + ' --user ' + username + ' --password ' + password + ' --st2'],
-                                      cwd=Parameters["HomeFolder"])
+        st2 = subprocess.check_output(['bash', '-c', 'wget -q -O - http://' + username + ':' + password + '@' + str(
+            Parameters["Address"]) + '/st2.xml'], cwd=Parameters["HomeFolder"])
         st2 = str(st2.decode('utf-8'))
         if Parameters["Mode6"] == 'Debug':
             Domoticz.Debug(st2[:30] + " .... " + st2[-30:])
@@ -238,8 +232,13 @@ class BasePlugin:
 
         if st2['ver'] == '3.22':
             self.NAMES.update(self.NAMES_v1)
+            self.KEY["ReverseOutStateDisable"] = "out5"
         elif st2['ver'] == '3.18':
             self.NAMES.update(self.NAMES_v2)
+            self.KEY["ReverseOutStateDisable"] = "out6"
+        else:
+            self.NAMES.update(self.NAMES_v2)
+            self.KEY["ReverseOutStateDisable"] = "out6"
 
         for x in Parameters["Mode3"].split(';'):
             if x in self.NAMES.keys() and self.NAMES[x] in st2.keys():
@@ -250,8 +249,16 @@ class BasePlugin:
             for x in self.NAMES.keys():
                 Domoticz.Log(str(x) + " => " + str(self.NAMES[x]))
 
+        self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
+        if Parameters["Mode6"] == "Debug":
+            Domoticz.Log(
+                "ReverseOutStateDisable was set to: " + str(self.ReverseOutStateDisable) + " because " + self.KEY[
+                    "ReverseOutStateDisable"] + " was: " + st2[self.KEY["ReverseOutStateDisable"]])
+
+        # check if provided by user parameters exist, exist in names table, already exist (index) in domoticz
+        # if not create
         for x in Parameters["Mode3"].split(';'):
-            if x in self.NAMES.keys() and x in self.KEY and list(st0.keys()).index(x) + 1 not in Devices:
+            if x in self.NAMES.keys() and x in self.KEY and (list(st0.keys()).index(x) + 1) not in Devices:
                 Domoticz.Device(Name=self.NAMES[x], Unit=list(st0.keys()).index(x) + 1, TypeName=self.KEY[x]).Create()
                 if Parameters["Mode6"] == "Debug":
                     Domoticz.Log(
@@ -272,7 +279,7 @@ class BasePlugin:
             self.isConnected = False
         s.close()
         if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("isAlive status :" + str(self.isConnected))
+            Domoticz.Log("isAlive status: " + str(self.isConnected))
         return
 
     # executed each time we click on device thru domoticz GUI
@@ -286,10 +293,10 @@ class BasePlugin:
         password = str(Parameters["Mode2"])
 
         if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("Connect via script tinycontrol.py to website: " + str(
+            Domoticz.Log("Connect via wget to website: " + str(
                 Parameters["Address"]) + " user: " + username + " password: " + password)
-        st0 = subprocess.check_output(['bash', '-c', './tinycontrol.py ' + str(
-            Parameters["Address"]) + ' --user ' + username + ' --password ' + password], cwd=Parameters["HomeFolder"])
+        st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - http://' + username + ':' + password + '@' + str(
+            Parameters["Address"]) + '/st0.xml'], cwd=Parameters["HomeFolder"])
         st0 = str(st0.decode('utf-8'))
         if Parameters["Mode6"] == 'Debug':
             Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
@@ -297,40 +304,38 @@ class BasePlugin:
         st0 = st0['response']
 
         if str(list(st0.keys())[Unit - 1])[:-1] == "out":
+            if str(Command).upper() == "ON":
+                Command = "0"
+            else:
+                Command = "1"
+
+            # check flag ReverseOutStateDisable
+            self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
+            # check if ReverseOutStateDisable if so change expected state
+            if not self.ReverseOutStateDisable:
+                Command = str(int(not int(Command)))
+
             if Parameters["Mode6"] == "Debug":
-                Domoticz.Log("Connect via script tinycontrol.py to website: " + str(
-                    Parameters["Address"]) + " user: " + username + " password: " + password + " --out " + str(
-                    list(st0.keys())[Unit - 1])[-1:] + " " + str(Command).upper())
-            st0 = subprocess.check_output(['bash', '-c', './tinycontrol.py ' + str(
-                Parameters["Address"]) + ' --user ' + username + ' --password ' + password + ' --out ' + str(
-                list(st0.keys())[Unit - 1])[-1:] + ' ' + str(Command).upper()], cwd=Parameters["HomeFolder"])
-            st0 = str(st0.decode('utf-8'))
+                Domoticz.Log(
+                    'Connect via wget to website: ' + 'wget -q -O - http://' + username + ':' + password + '@' + str(
+                        Parameters["Address"]) + '/outs.cgi?' + str(list(st0.keys())[Unit - 1]) + '=' + str(Command))
+
+            outOutput = subprocess.check_output(
+                ['bash', '-c', 'wget -q -O - http://' + username + ':' + password + '@' + str(
+                    Parameters["Address"]) + '/outs.cgi?' + str(list(st0.keys())[Unit - 1]) + '=' + str(Command)],
+                cwd=Parameters["HomeFolder"])
+            outOutput = str(outOutput.decode('utf-8'))
             if Parameters["Mode6"] == 'Debug':
-                Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
-                st0 = xmltodict.parse(st0)
-                st0 = st0['response']
+                Domoticz.Debug(outOutput)
+            outOutput = list(outOutput)[int(list(st0.keys())[Unit - 1][-1:])]
+            # index of switch is last letter of outx  str(list(st0.keys())[Unit - 1])[-1:]
+            if self.ReverseOutStateDisable:
+                outOutput = str(int(not int(outOutput)))
+            UpdateDevice(Unit, int(outOutput), str(outOutput))
+            Domoticz.Log("ReverseOutStateDisable: " + str(self.ReverseOutStateDisable) + " Update Unit=" + str(
+                Unit) + " Value=" + str(float(outOutput)))
         else:
             Domoticz.Log("It is not out*: " + str(list(st0.keys())[Unit - 1]) + ' ' + str(Command).upper())
-
-        if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("st0.xml :")
-            for x in st0.keys():
-                Domoticz.Log(str(x) + " => " + str(st0[x]))
-
-        for x in Parameters["Mode3"].split(';'):
-            if int(list(st0.keys()).index(x) + 1) in Devices:
-                if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
-                    UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(float(st0[x]) / 10))
-                elif self.KEY[x] == "Switch":
-                    UpdateDevice(list(st0.keys()).index(x) + 1, int(st0[x]), str(st0[x]))
-
-                if Parameters["Mode6"] == "Debug":
-                    if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
-                        Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
-                            float(st0[x]) / 10))
-                    elif self.KEY[x] == "Switch":
-                        Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
-                            float(st0[x])))
 
         return
 
@@ -342,11 +347,10 @@ class BasePlugin:
             password = str(Parameters["Mode2"])
 
             if Parameters["Mode6"] == "Debug":
-                Domoticz.Log("Connect via script tinycontrol.py to website: " + str(
+                Domoticz.Log("Connect via wget to website: " + str(
                     Parameters["Address"]) + " user: " + username + " password: " + password)
-            st0 = subprocess.check_output(['bash', '-c', './tinycontrol.py ' + str(
-                Parameters["Address"]) + ' --user ' + username + ' --password ' + password],
-                                          cwd=Parameters["HomeFolder"])
+            st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - http://' + username + ':' + password + '@' + str(
+                Parameters["Address"]) + '/st0.xml'], cwd=Parameters["HomeFolder"])
             st0 = str(st0.decode('utf-8'))
             if Parameters["Mode6"] == 'Debug':
                 Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
@@ -358,11 +362,16 @@ class BasePlugin:
                 for x in st0.keys():
                     Domoticz.Log(str(x) + " => " + str(st0[x]))
 
+            # check flag ReverseOutStateDisable
+            self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
+
             for x in Parameters["Mode3"].split(';'):
                 if int(list(st0.keys()).index(x) + 1) in Devices:
                     if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
                         UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(float(st0[x]) / 10))
                     elif self.KEY[x] == "Switch":
+                        if self.ReverseOutStateDisable:
+                            st0[x] = str(int(not int(st0[x])))
                         UpdateDevice(list(st0.keys()).index(x) + 1, int(st0[x]), str(st0[x]))
 
                     if Parameters["Mode6"] == "Debug":
