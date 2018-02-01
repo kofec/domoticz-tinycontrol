@@ -13,18 +13,14 @@ parser.add_argument('--user', help='Username to login to', default='admin')
 parser.add_argument('--password', help='Password to login to', default='admin')
 parser.add_argument('--st2', action='store_true', help='if define output of st2.xml is printed')
 parser.add_argument('--out', nargs=2, metavar=('<port number>', 'ON/OFF'), help='eg. --out 1 ON - when turn ON out1')
-parser.add_argument('--debug', action='store_true', help='if define more output is printed')
+
 
 args = parser.parse_args()
-if args.debug:
-    print(args)
-
-if args.debug:
-    print("Current paths where search for modules: " + str(sys.path))
+print(args)
+print("Current paths where search for modules: " + str(sys.path))
 
 if Path(pathOfPackages).exists():
-    if args.debug:
-        print("Adding path: " + pathOfPackages)
+    print("Adding path: " + pathOfPackages)
     sys.path.append(pathOfPackages)
     import xmltodict
 else:
@@ -56,8 +52,7 @@ except OSError as e:
         print("Error when checking if wget exist")
         raise
 
-if args.debug:
-    print(subprocess.check_output(['bash', '-c', 'wget --version']))
+print(subprocess.check_output(['bash', '-c', 'wget --version']))
 
 if args.out:
     if int(args.out[0]) in range(6) and (args.out[1] in ["OFF", "ON"]):
@@ -65,55 +60,34 @@ if args.out:
             args.out[1] = "1"
         else:
             args.out[1] = "0"
-        urll = 'http://' + args.IPaddress + '/outs.cgi?out' + args.out[0] + '=' + args.out[1]
-        # create a password manager
-        passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-        # Add the username and password.
-        # If we knew the realm, we could use it instead of None.
-        passman.add_password(None, urll, username, password)
-
-        authhandler = urllib.request.HTTPBasicAuthHandler(passman)
-        # create "opener" (OpenerDirector instance)
-        opener = urllib.request.build_opener(authhandler)
-        # use the opener to fetch a URL
-        pagehandle = opener.open(urll)
-
-        data = pagehandle.read()
-        pagehandle.close()
-        if args.debug:
-            print (data)
+        url = "http://"
+        if username and password:
+            url += username + ':' + password + '@'
+        url += str(args.IPaddress) + '/outs.cgi?out' + args.out[0] + '=' + args.out[1]
+        print("Connect via wget to website: wget -q -O -" + url)
+        data = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url])
+        print(data)
     else:
         print("Incorrect parameters")
         # change to exception
 
 
+url = "http://"
+if username and password:
+    url += username + ':' + password + '@'
+
 if args.st2:
-    urll = 'http://' + args.IPaddress + '/st2.xml'
+    url += args.IPaddress + '/st2.xml'
 else:
-    urll = 'http://' + args.IPaddress + '/st0.xml'
+    url += args.IPaddress + '/st0.xml'
 
-# create a password manager
-passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-# Add the username and password.
-# If we knew the realm, we could use it instead of None.
-passman.add_password(None, urll, username, password)
+print("Connect via wget to website: wget -q -O -" + url)
+data = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url])
+print(data)
 
-authhandler = urllib.request.HTTPBasicAuthHandler(passman)
-# create "opener" (OpenerDirector instance)
-opener = urllib.request.build_opener(authhandler)
-# use the opener to fetch a URL
-pagehandle = opener.open(urll)
-
-data = pagehandle.read()
-pagehandle.close()
-if args.debug:
-    print(data)
-# chop b' .... '
-print(str(data)[2:-1])
-if args.debug:
-    data = xmltodict.parse(data)
-    print(data)
-    data = data['response']
-    print(data)
-    print("Number of items in dictionary: ", len(data.keys()))
+data = xmltodict.parse(data)
+print(data)
+data = data['response']
+print(data)
+print("Number of items in dictionary: ", len(data.keys()))
 

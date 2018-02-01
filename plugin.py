@@ -6,6 +6,7 @@
 #           Author:     kofec, 2017
 #           1.0.0:  initial release
 #           1.0.2:  change to external script tinycontrol
+#           1.0.3:  clean code and change to wget
 #
 #           Resposne for Lan Controler v1
 #           ./tinycontrol.py 192.168.1.100
@@ -65,7 +66,7 @@
 # Below is what will be displayed in Domoticz GUI under HW
 #
 """
-<plugin key="LanControler" name="Lan Controler from tinycontrol.pl" author="kofec" version="1.0.2" wikilink="no" externallink="http://tinycontrol.pl/en/lan-controler-v2/">
+<plugin key="LanControler" name="Lan Controler from tinycontrol.pl" author="kofec" version="1.0.3" wikilink="no" externallink="http://tinycontrol.pl/en/lan-controler-v2/">
     <params>
         <param field="Address" label="IP Address" width="200px" required="true" default="127.0.0.1"/>
         <param field="Port" label="Port" width="40px" required="true" default="80"/>
@@ -190,11 +191,13 @@ class BasePlugin:
         username = str(Parameters["Mode1"])
         password = str(Parameters["Mode2"])
 
+        url = "http://"
+        if username and password:
+            url += username + ':' + password + '@'
+        url += str(Parameters["Address"]) + '/st0.xml'
         if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("Connect via wget to website: " + str(
-                Parameters["Address"]) + " user: " + username + " password: " + password)
-        st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - http://' + username + ':' + password + '@' + str(
-            Parameters["Address"]) + '/st0.xml'], cwd=Parameters["HomeFolder"])
+            Domoticz.Log("Connect via wget to website: " + url)
+        st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
         st0 = str(st0.decode('utf-8'))
         if Parameters["Mode6"] == 'Debug':
             Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
@@ -206,11 +209,13 @@ class BasePlugin:
             for x in st0.keys():
                 Domoticz.Log(str(x) + " => " + str(st0[x]))
 
+        url = "http://"
+        if username and password:
+            url += username + ':' + password + '@'
+        url += str(Parameters["Address"]) + '/st2.xml'
         if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("Connect via wget to website: " + str(
-                Parameters["Address"]) + " user: " + username + " password: " + password)
-        st2 = subprocess.check_output(['bash', '-c', 'wget -q -O - http://' + username + ':' + password + '@' + str(
-            Parameters["Address"]) + '/st2.xml'], cwd=Parameters["HomeFolder"])
+            Domoticz.Log("Connect via wget to website: " + url)
+        st2 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
         st2 = str(st2.decode('utf-8'))
         if Parameters["Mode6"] == 'Debug':
             Domoticz.Debug(st2[:30] + " .... " + st2[-30:])
@@ -291,12 +296,13 @@ class BasePlugin:
 
         username = str(Parameters["Mode1"])
         password = str(Parameters["Mode2"])
-
+        url = "http://"
+        if username and password:
+            url += username + ':' + password + '@'
+        url += str(Parameters["Address"]) + '/st0.xml'
         if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("Connect via wget to website: " + str(
-                Parameters["Address"]) + " user: " + username + " password: " + password)
-        st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - http://' + username + ':' + password + '@' + str(
-            Parameters["Address"]) + '/st0.xml'], cwd=Parameters["HomeFolder"])
+            Domoticz.Log("Connect via wget to website: " + url)
+        st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
         st0 = str(st0.decode('utf-8'))
         if Parameters["Mode6"] == 'Debug':
             Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
@@ -315,15 +321,14 @@ class BasePlugin:
             if not self.ReverseOutStateDisable:
                 Command = str(int(not int(Command)))
 
+            url = "http://"
+            if username and password:
+                url += username + ':' + password + '@'
+            url += str(Parameters["Address"]) + '/outs.cgi?' + str(list(st0.keys())[Unit - 1]) + '=' + str(Command)
             if Parameters["Mode6"] == "Debug":
-                Domoticz.Log(
-                    'Connect via wget to website: ' + 'wget -q -O - http://' + username + ':' + password + '@' + str(
-                        Parameters["Address"]) + '/outs.cgi?' + str(list(st0.keys())[Unit - 1]) + '=' + str(Command))
-
-            outOutput = subprocess.check_output(
-                ['bash', '-c', 'wget -q -O - http://' + username + ':' + password + '@' + str(
-                    Parameters["Address"]) + '/outs.cgi?' + str(list(st0.keys())[Unit - 1]) + '=' + str(Command)],
-                cwd=Parameters["HomeFolder"])
+                Domoticz.Log("Connect via wget to website: " + url)
+            outOutput = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url],
+                                                cwd=Parameters["HomeFolder"])
             outOutput = str(outOutput.decode('utf-8'))
             if Parameters["Mode6"] == 'Debug':
                 Domoticz.Debug(outOutput)
@@ -346,11 +351,13 @@ class BasePlugin:
             username = str(Parameters["Mode1"])
             password = str(Parameters["Mode2"])
 
+            url = "http://"
+            if username and password:
+                url += username + ':' + password + '@'
+            url += str(Parameters["Address"]) + '/st0.xml'
             if Parameters["Mode6"] == "Debug":
-                Domoticz.Log("Connect via wget to website: " + str(
-                    Parameters["Address"]) + " user: " + username + " password: " + password)
-            st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - http://' + username + ':' + password + '@' + str(
-                Parameters["Address"]) + '/st0.xml'], cwd=Parameters["HomeFolder"])
+                Domoticz.Log("Connect via wget to website: " + url)
+            st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
             st0 = str(st0.decode('utf-8'))
             if Parameters["Mode6"] == 'Debug':
                 Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
