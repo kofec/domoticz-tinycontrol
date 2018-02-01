@@ -23,15 +23,14 @@ usage: tinycontrol.py [-h] [--user USER] [--password PASSWORD] [--st2]
                       [--out <port number> ON/OFF] [--debug]
                       IPaddress
                       
-./tinycontrol.py 192.168.1.1
+./tinycontrol.py 192.168.1.1 --debug
 <response><out0>1</out0><out1>0</out1><out2>0</out2><out3>1</out3><out4>1</out4><out5>1</out5><out6>1</out6><di0>up</di0><di1>up</di1><di2>up</di2><di3>up</di3><ia0>275</ia0><ia1>134</ia1><ia2>0</ia2><ia3>3</ia3><ia4>-7</ia4><ia5>0</ia5><ia6>22</ia6><ia7>605</ia7><ia8>81</ia8><ia9>-600</ia9><ia10>-600</ia10><ia11>-600</ia11><ia12>-600</ia12><ia13>0</ia13><ia14>0</ia14><ia15>0</ia15><ia16>0</ia16><ia17>0</ia17><ia18>0</ia18><ia19>-88</ia19><freq>5008</freq><duty>500</duty><pwm>0</pwm><sec0>35</sec0><sec1>13</sec1><sec2>6</sec2><sec3>25</sec3><sec4>1517348529</sec4></response>
 
 ```
 * You will probably need install python package "xmltodict" like in issue https://github.com/kofec/domoticz-tinycontrol/issues/1
 * and check where it was installed and in file plugin.py find and correct if needed 
-if sys.platform.startswith('linux'):
-linux specific code here
-sys.path.append('/usr/local/lib/python3.5/dist-packages')
+
+pathOfPackages = '/usr/local/lib/python3.5/dist-packages'
 
 * As you can see in above example ther is lots of devices. You will need it in next step
 
