@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-import urllib.request
 import argparse
 import subprocess
 import sys
@@ -52,7 +51,7 @@ except OSError as e:
         print("Error when checking if wget exist")
         raise
 
-print(subprocess.check_output(['bash', '-c', 'wget --version']))
+print(subprocess.check_output(['bash', '-c', 'wget --version']).decode())
 
 if args.out:
     if int(args.out[0]) in range(6) and (args.out[1] in ["OFF", "ON"]):
@@ -64,9 +63,9 @@ if args.out:
         if username and password:
             url += username + ':' + password + '@'
         url += str(args.IPaddress) + '/outs.cgi?out' + args.out[0] + '=' + args.out[1]
-        print("Connect via wget to website: wget -q -O -" + url)
+        print("Connect via wget to website: wget -q -O - " + url)
         data = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url])
-        print(data)
+        print(data.decode())
     else:
         print("Incorrect parameters")
         # change to exception
@@ -82,12 +81,39 @@ else:
     url += args.IPaddress + '/st0.xml'
 
 print("Connect via wget to website: wget -q -O -" + url)
-data = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url])
-print(data)
+try:
+    data = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url])
+    print(data)
+    data = xmltodict.parse(data)
+    print(data)
+    data = data['response']
+    print(data)
+    print("Number of items in dictionary: ", len(data.keys()))
+except subprocess.CalledProcessError as e:
+    print("wget return error:")
+    print(e.output)
+    print(e.cmd)
+    print(e.stderr)
+    print(e.returncode)
+    url = "http://"
+    if username and password:
+        url += username + ':' + password + '@'
+        url += args.IPaddress + '/xml/ix.xml'
 
-data = xmltodict.parse(data)
-print(data)
-data = data['response']
-print(data)
-print("Number of items in dictionary: ", len(data.keys()))
+    print("Connect via wget to website: wget -q -O -" + url)
+    try:
+        data = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url])
+        print(data)
+        data = xmltodict.parse(data)
+        print(data)
+        data = data['response']
+        print(data)
+        print("Number of items in dictionary: ", len(data.keys()))
+    except subprocess.CalledProcessError as e:
+        print("wget return error:")
+        print(e.output)
+        print(e.cmd)
+        print(e.stderr)
+        print(e.returncode)
+
 
