@@ -1,4 +1,4 @@
-#           Enigma2 Python Plugin for Domoticz
+#           LanKontroler Python Plugin for Domoticz
 #
 #
 #           Dev. Platform : rasbian armv6l & Py 3.5.3
@@ -7,6 +7,7 @@
 #           1.0.0:  initial release
 #           1.0.2:  change to external script tinycontrol
 #           1.0.3:  clean code and change to wget
+#           2.0.0:  Add initial support for LK3
 #
 #           Resposne for Lan Controler v1
 #           ./tinycontrol.py 192.168.1.100
@@ -66,7 +67,7 @@
 # Below is what will be displayed in Domoticz GUI under HW
 #
 """
-<plugin key="LanControler" name="Lan Controler from tinycontrol.pl" author="kofec" version="1.0.3" wikilink="no" externallink="http://tinycontrol.pl/en/lan-controler-v2/">
+<plugin key="LanControler" name="Lan Controler from tinycontrol.pl" author="kofec" version="2.0.0" wikilink="no" externallink="http://tinycontrol.pl/en/lan-controler-v2/">
     <params>
         <param field="Address" label="IP Address" width="200px" required="true" default="127.0.0.1"/>
         <param field="Port" label="Port" width="40px" required="true" default="80"/>
@@ -112,6 +113,7 @@ class BasePlugin:
     # Connection Status
     isConnected = False
     ReverseOutStateDisable = True
+    IsItLK3 = False
 
     # known and supported keys
     KEY = {
@@ -129,8 +131,15 @@ class BasePlugin:
         "ia9": "Temperature",  # ds18b20 Temperature
         "ia10": "Temperature",  # ds18b20 Temperature
         "ia11": "Temperature",  # ds18b20 Temperature
-        "ia12": "Temperature"  # ds18b20 Temperature
-
+        "ia12": "Temperature",  # ds18b20 Temperature
+        "ds1": "Temperature",  # ds18b20 Temperature LK3
+        "ds2": "Temperature",  # ds18b20 Temperature LK3
+        "ds3": "Temperature",  # ds18b20 Temperature LK3
+        "ds4": "Temperature",  # ds18b20 Temperature LK3
+        "ds5": "Temperature",  # ds18b20 Temperature LK3
+        "ds6": "Temperature",  # ds18b20 Temperature LK3
+        "ds7": "Temperature",  # ds18b20 Temperature LK3
+        "ds8": "Temperature",  # ds18b20 Temperature LK3
     }
     # resolve issue when cannot take name from response - search names if doesn't exist take key
     NAMES = {
@@ -142,7 +151,7 @@ class BasePlugin:
         "ia9": "d2",  # ds18b20 Temperature
         "ia10": "d3",  # ds18b20 Temperature
         "ia11": "d4",  # ds18b20 Temperature
-        "ia12": "d5"  # ds18b20 Temperature
+        "ia12": "d5",  # ds18b20 Temperature
     }
 
     NAMES_v1 = {
@@ -161,6 +170,23 @@ class BasePlugin:
         "out3": "r9",  # Relay/Switch
         "out4": "r10",  # Relay/Switch
         "out5": "r11",  # Relay/Switch
+    }
+
+    NAMES_v3 = {
+        "ds1": "ds1",  # ds18b20 Temperature
+        "ds2": "ds2",  # ds18b20 Temperature
+        "ds3": "ds3",  # ds18b20 Temperature
+        "ds4": "ds4",  # ds18b20 Temperature
+        "ds5": "ds5",  # ds18b20 Temperature
+        "ds6": "ds6",  # ds18b20 Temperature
+        "ds7": "ds7",  # ds18b20 Temperature
+        "ds8": "ds8",  # ds18b20 Temperature
+        "out0": "out0",  # Relay/Switch
+        "out1": "out1",  # Relay/Switch
+        "out2": "out2",  # Relay/Switch
+        "out3": "out3",  # Relay/Switch
+        "out4": "out4",  # Relay/Switch
+        "out5": "out5",  # Relay/Switch
     }
 
     config = ''
@@ -197,68 +223,96 @@ class BasePlugin:
         url += str(Parameters["Address"]) + '/st0.xml'
         if Parameters["Mode6"] == "Debug":
             Domoticz.Log("Connect via wget to website: " + url)
-        st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
-        st0 = str(st0.decode('utf-8'))
-        if Parameters["Mode6"] == 'Debug':
-            Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
-        st0 = xmltodict.parse(st0)
-        st0 = st0['response']
+        try:
+            st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
+            st0 = str(st0.decode('utf-8'))
+            if Parameters["Mode6"] == 'Debug':
+                Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
+            st0 = xmltodict.parse(st0)
+            st0 = st0['response']
 
-        if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("st0.xml :")
-            for x in st0.keys():
-                Domoticz.Log(str(x) + " => " + str(st0[x]))
+            if Parameters["Mode6"] == "Debug":
+                Domoticz.Log("st0.xml :")
+                for x in st0.keys():
+                    Domoticz.Log(str(x) + " => " + str(st0[x]))
 
-        url = "http://"
-        if username and password:
-            url += username + ':' + password + '@'
-        url += str(Parameters["Address"]) + '/st2.xml'
-        if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("Connect via wget to website: " + url)
-        st2 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
-        st2 = str(st2.decode('utf-8'))
-        if Parameters["Mode6"] == 'Debug':
-            Domoticz.Debug(st2[:30] + " .... " + st2[-30:])
-        st2 = xmltodict.parse(st2)
-        st2 = st2['response']
+            url = "http://"
+            if username and password:
+                url += username + ':' + password + '@'
+            url += str(Parameters["Address"]) + '/st2.xml'
+            if Parameters["Mode6"] == "Debug":
+                Domoticz.Log("Connect via wget to website: " + url)
+            st2 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
+            st2 = str(st2.decode('utf-8'))
+            if Parameters["Mode6"] == 'Debug':
+                Domoticz.Debug(st2[:30] + " .... " + st2[-30:])
+            st2 = xmltodict.parse(st2)
+            st2 = st2['response']
 
-        if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("st2.xml :")
-            for x in st2.keys():
-                Domoticz.Log(str(x) + " => " + str(st2[x]))
+            if Parameters["Mode6"] == "Debug":
+                Domoticz.Log("st2.xml :")
+                for x in st2.keys():
+                    Domoticz.Log(str(x) + " => " + str(st2[x]))
 
-        for i, x in enumerate(st2['d'].split("*")):
-            st2['d' + str(i)] = x
+            for i, x in enumerate(st2['d'].split("*")):
+                st2['d' + str(i)] = x
 
-        if Parameters["Mode6"] == "Debug":
-            Domoticz.Log("st2.xml :")
-            for x in st2.keys():
-                Domoticz.Log(str(x) + " => " + str(st2[x]))
+            if Parameters["Mode6"] == "Debug":
+                Domoticz.Log("st2.xml :")
+                for x in st2.keys():
+                    Domoticz.Log(str(x) + " => " + str(st2[x]))
 
-        if st2['ver'] == '3.22':
-            self.NAMES.update(self.NAMES_v1)
-            self.KEY["ReverseOutStateDisable"] = "out5"
-        elif st2['ver'] == '3.18':
-            self.NAMES.update(self.NAMES_v2)
-            self.KEY["ReverseOutStateDisable"] = "out6"
-        else:
-            self.NAMES.update(self.NAMES_v2)
-            self.KEY["ReverseOutStateDisable"] = "out6"
+            if st2['ver'] == '3.22':
+                self.NAMES.update(self.NAMES_v1)
+                self.KEY["ReverseOutStateDisable"] = "out5"
+            elif st2['ver'] == '3.18':
+                self.NAMES.update(self.NAMES_v2)
+                self.KEY["ReverseOutStateDisable"] = "out6"
+            else:
+                self.NAMES.update(self.NAMES_v2)
+                self.KEY["ReverseOutStateDisable"] = "out6"
 
-        for x in Parameters["Mode3"].split(';'):
-            if x in self.NAMES.keys() and self.NAMES[x] in st2.keys():
-                self.NAMES[x] = st2[self.NAMES[x]]
+            for x in Parameters["Mode3"].split(';'):
+                if x in self.NAMES.keys() and self.NAMES[x] in st2.keys():
+                    self.NAMES[x] = st2[self.NAMES[x]]
+
+            self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
+            if Parameters["Mode6"] == "Debug":
+                Domoticz.Log(
+                    "ReverseOutStateDisable was set to: " + str(self.ReverseOutStateDisable) + " because " + self.KEY[
+                        "ReverseOutStateDisable"] + " was: " + st2[self.KEY["ReverseOutStateDisable"]])
+        except subprocess.CalledProcessError as e:
+            if Parameters["Mode6"] == "Debug":
+                Domoticz.Log("wget return error:")
+                Domoticz.Log(str(e.output))
+                Domoticz.Log(str(e.cmd))
+                Domoticz.Log(str(e.stderr))
+                Domoticz.Log(str(e.returncode))
+            url = "http://"
+            if username and password:
+                url += username + ':' + password + '@'
+            url += str(Parameters["Address"]) + '/xml/ix.xml'
+            if Parameters["Mode6"] == "Debug":
+                Domoticz.Log("Connect via wget to website: " + url)
+            st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
+            st0 = str(st0.decode('utf-8'))
+            if Parameters["Mode6"] == 'Debug':
+                Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
+            st0 = xmltodict.parse(st0)
+            st0 = st0['response']
+
+            if Parameters["Mode6"] == "Debug":
+                Domoticz.Log("st0.xml :")
+                for x in st0.keys():
+                    Domoticz.Log(str(x) + " => " + str(st0[x]))
+
+            self.NAMES.update(self.NAMES_v3)
+            self.IsItLK3 = True
 
         if Parameters["Mode6"] == "Debug":
             Domoticz.Log("NAMES dict :")
             for x in self.NAMES.keys():
                 Domoticz.Log(str(x) + " => " + str(self.NAMES[x]))
-
-        self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
-        if Parameters["Mode6"] == "Debug":
-            Domoticz.Log(
-                "ReverseOutStateDisable was set to: " + str(self.ReverseOutStateDisable) + " because " + self.KEY[
-                    "ReverseOutStateDisable"] + " was: " + st2[self.KEY["ReverseOutStateDisable"]])
 
         # check if provided by user parameters exist, exist in names table, already exist (index) in domoticz
         # if not create
@@ -299,7 +353,10 @@ class BasePlugin:
         url = "http://"
         if username and password:
             url += username + ':' + password + '@'
-        url += str(Parameters["Address"]) + '/st0.xml'
+        if self.IsItLK3:
+            url += str(Parameters["Address"]) + '/xml/ix.xml'
+        else:
+            url += str(Parameters["Address"]) + '/st0.xml'
         if Parameters["Mode6"] == "Debug":
             Domoticz.Log("Connect via wget to website: " + url)
         st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
@@ -315,11 +372,12 @@ class BasePlugin:
             else:
                 Command = "1"
 
-            # check flag ReverseOutStateDisable
-            self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
-            # check if ReverseOutStateDisable if so change expected state
-            if not self.ReverseOutStateDisable:
-                Command = str(int(not int(Command)))
+            if not self.IsItLK3:
+                # check flag ReverseOutStateDisable
+                self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
+                # check if ReverseOutStateDisable if so change expected state
+                if not self.ReverseOutStateDisable:
+                    Command = str(int(not int(Command)))
 
             url = "http://"
             if username and password:
@@ -354,7 +412,10 @@ class BasePlugin:
             url = "http://"
             if username and password:
                 url += username + ':' + password + '@'
-            url += str(Parameters["Address"]) + '/st0.xml'
+            if self.IsItLK3:
+                url += str(Parameters["Address"]) + '/xml/ix.xml'
+            else:
+                url += str(Parameters["Address"]) + '/st0.xml'
             if Parameters["Mode6"] == "Debug":
                 Domoticz.Log("Connect via wget to website: " + url)
             st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
@@ -369,8 +430,9 @@ class BasePlugin:
                 for x in st0.keys():
                     Domoticz.Log(str(x) + " => " + str(st0[x]))
 
-            # check flag ReverseOutStateDisable
-            self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
+            if not self.IsItLK3:
+                # check flag ReverseOutStateDisable
+                self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
 
             for x in Parameters["Mode3"].split(';'):
                 if int(list(st0.keys()).index(x) + 1) in Devices:

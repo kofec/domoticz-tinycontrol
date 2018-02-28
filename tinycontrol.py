@@ -98,8 +98,7 @@ except subprocess.CalledProcessError as e:
     url = "http://"
     if username and password:
         url += username + ':' + password + '@'
-        url += args.IPaddress + '/xml/ix.xml'
-
+    url += args.IPaddress + '/xml/ix.xml'
     print("Connect via wget to website: wget -q -O -" + url)
     try:
         data = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url])
