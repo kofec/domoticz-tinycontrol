@@ -90,6 +90,7 @@ import sys
 import os
 import socket
 import subprocess
+import datetime
 
 # Python framework in Domoticz do not include OS dependent path
 #
@@ -546,7 +547,9 @@ def DumpConfigToLog():
 def UpdateDevice(Unit: object, nValue: object, sValue: object) -> object:
     # Make sure that the Domoticz device still exists (they can be deleted) before updating it 
     if (Unit in Devices):
-        if (Devices[Unit].nValue != nValue) or (Devices[Unit].sValue != sValue):
+        if (Devices[Unit].nValue != nValue) or (Devices[Unit].sValue != sValue) or (
+                datetime.datetime.now() - datetime.datetime.strptime(Devices[Unit].LastUpdate,
+                                                                     '%Y-%m-%d %H:%M:%S')).seconds > 3600:
             Devices[Unit].Update(nValue=nValue, sValue=str(sValue))
             Domoticz.Log("Update " + str(nValue) + ":'" + str(sValue) + "' (" + Devices[Unit].Name + ")")
     return
