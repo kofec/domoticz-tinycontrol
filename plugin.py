@@ -438,7 +438,7 @@ class BasePlugin:
             for x in Parameters["Mode3"].split(';'):
                 if int(list(st0.keys()).index(x) + 1) in Devices:
                     if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
-                        UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(float(st0[x]) / 10))
+                        UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(round(float(st0[x]) / 10, 2)))
                     elif self.KEY[x] == "Switch":
                         if self.ReverseOutStateDisable:
                             st0[x] = str(int(not int(st0[x])))
