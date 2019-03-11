@@ -1,9 +1,9 @@
 #           LanKontroler Python Plugin for Domoticz
 #
 #
-#           Dev. Platform : rasbian armv6l & Py 3.5.3
+#           Dev. Platform : Openwrt armv6l & Py 3.5.3
 #
-#           Author:     kofec, 2017
+#           Author:     kofec, 2019
 #           1.0.0:  initial release
 #           1.0.2:  change to external script tinycontrol
 #           1.0.3:  clean code and change to wget
@@ -67,13 +67,14 @@
 # Below is what will be displayed in Domoticz GUI under HW
 #
 """
-<plugin key="LanControler" name="Lan Controler from tinycontrol.pl" author="kofec" version="2.0.0" wikilink="no" externallink="http://tinycontrol.pl/en/lan-controler-v2/">
+<plugin key="LanControler" name="Lan Controler from tinycontrol.pl" author="kofec" version="2.1.0" wikilink="no" externallink="http://tinycontrol.pl/en/lan-controler-v2/">
     <params>
         <param field="Address" label="IP Address" width="200px" required="true" default="127.0.0.1"/>
         <param field="Port" label="Port" width="40px" required="true" default="80"/>
         <param field="Mode1" label="Username" width="200px" required="false" default="admin"/>
         <param field="Mode2" label="Password" width="200px" required="false" default="admin"/>
         <param field="Mode3" label="Which devices should be tracked" width="400px" default=""/>
+        <param field="Mode4" label="Poll Period (* 10s)" width="75px" required="true" default="6"/>
         <param field="Mode6" label="Debug" width="75px">
             <options>
                 <option label="True" value="Debug"/>
@@ -91,21 +92,28 @@ import os
 import socket
 import subprocess
 import datetime
+import site
+# Python framework in Domoticz do not include OS dependent path
+#
+path=''
+path=site.getsitepackages()
+for i in path:
+    sys.path.append(i)
 
 # Python framework in Domoticz do not include OS dependent path
 #
 from pathlib import Path
 
-pathOfPackages = '/usr/local/lib/python3.5/dist-packages'
+pathOfPackages = '/usr/lib/python3.6/site-packages/'
 
 if Path(pathOfPackages).exists():
     sys.path.append(pathOfPackages)
+    print("OK")
+
+try:
     import xmltodict
-else:
-    Domoticz.Log("It can be an issue with import package xmltodict")
-    Domoticz.Log("Find where is located package xmltodict and correct variable: pathOfPackages")
-    Domoticz.Log("pathOfPackages:", pathOfPackages)
-    import xmltodict
+except ImportError:
+    pass
 
 socket.setdefaulttimeout(2)
 
@@ -113,8 +121,11 @@ socket.setdefaulttimeout(2)
 class BasePlugin:
     # Connection Status
     isConnected = False
+    isXmltodict = False
     ReverseOutStateDisable = True
     IsItLK3 = False
+    pollPeriod = 0
+    pollCount = 0
 
     # known and supported keys
     KEY = {
@@ -201,7 +212,17 @@ class BasePlugin:
             Domoticz.Debugging(1)
             DumpConfigToLog()
 
-        Domoticz.Heartbeat(60)
+        try:
+            "parse" in dir(xmltodict)
+            self.isXmltodict = True
+        except Exception as e:
+            print(e)
+            self.isXmltodict = False
+            pass
+
+        self.pollPeriod = int(Parameters["Mode4"])
+        self.pollCount = self.pollPeriod - 1
+        Domoticz.Heartbeat(10)
 
         self.config = {
             "description": "Domoticz",
@@ -340,6 +361,9 @@ class BasePlugin:
         s.close()
         if Parameters["Mode6"] == "Debug":
             Domoticz.Log("isAlive status: " + str(self.isConnected))
+            if(not self.isXmltodict):
+                Domoticz.Error("Missing module xmltodict - correct pathOfPackages in plugin.py")
+                self.isConnected = False
         return
 
     # executed each time we click on device thru domoticz GUI
@@ -404,54 +428,57 @@ class BasePlugin:
         return
 
     def onHeartbeat(self):
-        Domoticz.Log("onHeartbeat called")
-        self.isAlive()
-        if self.isConnected:
-            username = str(Parameters["Mode1"])
-            password = str(Parameters["Mode2"])
-
-            url = "http://"
-            if username and password:
-                url += username + ':' + password + '@'
-            if self.IsItLK3:
-                url += str(Parameters["Address"]) + '/xml/ix.xml'
-            else:
-                url += str(Parameters["Address"]) + '/st0.xml'
-            if Parameters["Mode6"] == "Debug":
-                Domoticz.Log("Connect via wget to website: " + url)
-            st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
-            st0 = str(st0.decode('utf-8'))
-            if Parameters["Mode6"] == 'Debug':
-                Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
-            st0 = xmltodict.parse(st0)
-            st0 = st0['response']
-
-            if Parameters["Mode6"] == "Debug":
-                Domoticz.Log("st0.xml :")
-                for x in st0.keys():
-                    Domoticz.Log(str(x) + " => " + str(st0[x]))
-
-            if not self.IsItLK3:
-                # check flag ReverseOutStateDisable
-                self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
-
-            for x in Parameters["Mode3"].split(';'):
-                if int(list(st0.keys()).index(x) + 1) in Devices:
-                    if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
-                        UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(round(float(st0[x]) / 10, 2)))
-                    elif self.KEY[x] == "Switch":
-                        if self.ReverseOutStateDisable:
-                            st0[x] = str(int(not int(st0[x])))
-                        UpdateDevice(list(st0.keys()).index(x) + 1, int(st0[x]), str(st0[x]))
-
-                    if Parameters["Mode6"] == "Debug":
+        Domoticz.Log("onHeartBeat called:"+str(self.pollCount)+"/"+str(self.pollPeriod))
+        if self.pollCount >= self.pollPeriod:
+            self.isAlive()
+            if self.isConnected:
+                username = str(Parameters["Mode1"])
+                password = str(Parameters["Mode2"])
+            
+                url = "http://"
+                if username and password:
+                    url += username + ':' + password + '@'
+                if self.IsItLK3:
+                    url += str(Parameters["Address"]) + '/xml/ix.xml'
+                else:
+                    url += str(Parameters["Address"]) + '/st0.xml'
+                if Parameters["Mode6"] == "Debug":
+                    Domoticz.Log("Connect via wget to website: " + url)
+                st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
+                st0 = str(st0.decode('utf-8'))
+                if Parameters["Mode6"] == 'Debug':
+                    Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
+                st0 = xmltodict.parse(st0)
+                st0 = st0['response']
+            
+                if Parameters["Mode6"] == "Debug":
+                    Domoticz.Log("st0.xml :")
+                    for x in st0.keys():
+                        Domoticz.Log(str(x) + " => " + str(st0[x]))
+            
+                if not self.IsItLK3:
+                    # check flag ReverseOutStateDisable
+                    self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
+            
+                for x in Parameters["Mode3"].split(';'):
+                    if int(list(st0.keys()).index(x) + 1) in Devices:
                         if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
-                            Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
-                                float(st0[x]) / 10))
+                            UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(format(float(st0[x]) / 10, '.2f')))
                         elif self.KEY[x] == "Switch":
-                            Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
-                                float(st0[x])))
-
+                            if self.ReverseOutStateDisable:
+                                st0[x] = str(int(not int(st0[x])))
+                            UpdateDevice(list(st0.keys()).index(x) + 1, int(st0[x]), str(st0[x]))
+            
+                        if Parameters["Mode6"] == "Debug":
+                            if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
+                                Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
+                                    format(float(st0[x]) / 10, '.2f')))
+                            elif self.KEY[x] == "Switch":
+                                Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
+                                    float(st0[x])))
+            self.pollCount = 0 #Reset Pollcount
+        else:
+            self.pollCount += 1
         return True
 
     def onConnect(self, Status, Description):
