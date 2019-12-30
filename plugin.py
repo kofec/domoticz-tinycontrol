@@ -428,7 +428,7 @@ class BasePlugin:
         return
 
     def onHeartbeat(self):
-        Domoticz.Log("onHeartBeat called:"+str(self.pollCount)+"/"+str(self.pollPeriod))
+        Domoticz.Debug("onHeartBeat called:"+str(self.pollCount)+"/"+str(self.pollPeriod))
         if self.pollCount >= self.pollPeriod:
             self.isAlive()
             if self.isConnected:
@@ -463,7 +463,7 @@ class BasePlugin:
                 for x in Parameters["Mode3"].split(';'):
                     if int(list(st0.keys()).index(x) + 1) in Devices:
                         if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
-                            UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(format(float(st0[x]) / 10, '.2f')))
+                            UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(format(float(st0[x]) / 10, '.1f')))
                         elif self.KEY[x] == "Switch":
                             if self.ReverseOutStateDisable:
                                 st0[x] = str(int(not int(st0[x])))
@@ -472,7 +472,7 @@ class BasePlugin:
                         if Parameters["Mode6"] == "Debug":
                             if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
                                 Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
-                                    format(float(st0[x]) / 10, '.2f')))
+                                    format(float(st0[x]) / 10, '.1f')))
                             elif self.KEY[x] == "Switch":
                                 Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
                                     float(st0[x])))
@@ -576,7 +576,7 @@ def UpdateDevice(Unit: object, nValue: object, sValue: object) -> object:
     if (Unit in Devices):
         if (Devices[Unit].nValue != nValue) or (Devices[Unit].sValue != sValue) or (
                 datetime.datetime.now() - datetime.datetime.strptime(Devices[Unit].LastUpdate,
-                                                                     '%Y-%m-%d %H:%M:%S')).seconds > 3600:
+                                                                     '%Y-%m-%d %H:%M:%S')).seconds > 1800:
             Devices[Unit].Update(nValue=nValue, sValue=str(sValue))
             Domoticz.Log("Update " + str(nValue) + ":'" + str(sValue) + "' (" + Devices[Unit].Name + ")")
     return
