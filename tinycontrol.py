@@ -4,7 +4,7 @@ import subprocess
 import sys
 import os
 from pathlib import Path
-pathOfPackages='/usr/local/lib/python3.5/dist-packages'
+pathOfPackages='/usr/local/lib/python3.9/dist-packages'
 
 parser = argparse.ArgumentParser(description='Comunicate with Tinycontrol.')
 parser.add_argument('IPaddress', help='IP address of TinyControl' )
@@ -51,7 +51,7 @@ except OSError as e:
         print("Error when checking if wget exist")
         raise
 
-print(subprocess.check_output(['bash', '-c', 'wget --version']).decode())
+print(subprocess.check_output(['bash', '-c', 'which wget']).decode())
 
 if args.out:
     if int(args.out[0]) in range(6) and (args.out[1] in ["OFF", "ON"]):

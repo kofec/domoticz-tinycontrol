@@ -463,6 +463,7 @@ class BasePlugin:
                 for x in Parameters["Mode3"].split(';'):
                     if int(list(st0.keys()).index(x) + 1) in Devices:
                         if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
+                            Domoticz.Debug(str(st0))
                             UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(format(float(st0[x]) / 10, '.1f')))
                         elif self.KEY[x] == "Switch":
                             if self.ReverseOutStateDisable:
@@ -573,10 +574,15 @@ def DumpConfigToLog():
 
 def UpdateDevice(Unit: object, nValue: object, sValue: object) -> object:
     # Make sure that the Domoticz device still exists (they can be deleted) before updating it 
+    Domoticz.Debug("UpdateDevice Unit:     '" + str(Unit) + "'")
+    Domoticz.Debug("UpdateDevice nValue:    " + str(nValue))
+    Domoticz.Debug("UpdateDevice sValue:   '" + str(sValue) + "'")
     if (Unit in Devices):
         if (Devices[Unit].nValue != nValue) or (Devices[Unit].sValue != sValue) or (
                 datetime.datetime.now() - datetime.datetime.strptime(Devices[Unit].LastUpdate,
                                                                      '%Y-%m-%d %H:%M:%S')).seconds > 1800:
+            if isinstance(sValue, float):
+                sValue = str(float("{0:.1f}".format(sValue))).replace('.', ',')
             Devices[Unit].Update(nValue=nValue, sValue=str(sValue))
             Domoticz.Log("Update " + str(nValue) + ":'" + str(sValue) + "' (" + Devices[Unit].Name + ")")
     return
