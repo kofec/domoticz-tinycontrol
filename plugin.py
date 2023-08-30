@@ -91,7 +91,7 @@ import sys
 import os
 import socket
 import subprocess
-import datetime
+from datetime import datetime
 import site
 # Python framework in Domoticz do not include OS dependent path
 #
@@ -571,18 +571,26 @@ def DumpConfigToLog():
         Domoticz.Debug("Device Image:     " + str(Devices[x].Image))
     return
 
-
 def UpdateDevice(Unit: object, nValue: object, sValue: object) -> object:
-    # Make sure that the Domoticz device still exists (they can be deleted) before updating it 
+    # Make sure that the Domoticz device still exists (they can be deleted) before updating it
     Domoticz.Debug("UpdateDevice Unit:     '" + str(Unit) + "'")
     Domoticz.Debug("UpdateDevice nValue:    " + str(nValue))
     Domoticz.Debug("UpdateDevice sValue:   '" + str(sValue) + "'")
     if (Unit in Devices):
-        if (Devices[Unit].nValue != nValue) or (Devices[Unit].sValue != sValue) or (
-                datetime.datetime.now() - datetime.datetime.strptime(Devices[Unit].LastUpdate,
-                                                                     '%Y-%m-%d %H:%M:%S')).seconds > 1800:
-            if isinstance(sValue, float):
-                sValue = str(float("{0:.1f}".format(sValue))).replace('.', ',')
-            Devices[Unit].Update(nValue=nValue, sValue=str(sValue))
-            Domoticz.Log("Update " + str(nValue) + ":'" + str(sValue) + "' (" + Devices[Unit].Name + ")")
+        Domoticz.Debug("Device LastUpdated :   '" + str(Devices[Unit].LastUpdate) + "'")
+        if Devices[Unit].nValue == nValue and Devices[Unit].sValue == sValue:
+            try:
+                LastUpdated_seconds = (datetime.now() - datetime.strptime(Devices[Unit].LastUpdate, '%Y-%m-%d %H:%M:%S')).seconds
+            except TypeError:
+                Domoticz.Debug('Exception call for strptime')
+                import time
+                LastUpdated_seconds = (datetime.now() - datetime.fromtimestamp(time.mktime(time.strptime(Devices[Unit].LastUpdate, '%Y-%m-%d %H:%M:%S')))).seconds
+            Domoticz.Debug('Device LastUpdated seconds:   ' + str(LastUpdated_seconds))
+            if LastUpdated_seconds < 1800:
+                return
+        # cast float to str
+        if isinstance(sValue, float):
+            sValue = str(float("{0:.1f}".format(sValue))).replace('.', ',')
+        Devices[Unit].Update(nValue=nValue, sValue=str(sValue))
+        Domoticz.Log("Update " + str(nValue) + ":'" + str(sValue) + "' (" + Devices[Unit].Name + ")")
     return
