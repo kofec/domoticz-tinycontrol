@@ -432,51 +432,58 @@ class BasePlugin:
         if self.pollCount >= self.pollPeriod:
             self.isAlive()
             if self.isConnected:
-                username = str(Parameters["Mode1"])
-                password = str(Parameters["Mode2"])
-            
-                url = "http://"
-                if username and password:
-                    url += username + ':' + password + '@'
-                if self.IsItLK3:
-                    url += str(Parameters["Address"]) + '/xml/ix.xml'
-                else:
-                    url += str(Parameters["Address"]) + '/st0.xml'
-                if Parameters["Mode6"] == "Debug":
-                    Domoticz.Log("Connect via wget to website: " + url)
-                st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
-                st0 = str(st0.decode('utf-8'))
-                if Parameters["Mode6"] == 'Debug':
-                    Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
-                st0 = xmltodict.parse(st0)
-                st0 = st0['response']
-            
-                if Parameters["Mode6"] == "Debug":
-                    Domoticz.Log("st0.xml :")
-                    for x in st0.keys():
-                        Domoticz.Log(str(x) + " => " + str(st0[x]))
-            
-                if not self.IsItLK3:
-                    # check flag ReverseOutStateDisable
-                    self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
-            
-                for x in Parameters["Mode3"].split(';'):
-                    if int(list(st0.keys()).index(x) + 1) in Devices:
-                        if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
-                            Domoticz.Debug(str(st0))
-                            UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(format(float(st0[x]) / 10, '.1f')))
-                        elif self.KEY[x] == "Switch":
-                            if self.ReverseOutStateDisable:
-                                st0[x] = str(int(not int(st0[x])))
-                            UpdateDevice(list(st0.keys()).index(x) + 1, int(st0[x]), str(st0[x]))
-            
-                        if Parameters["Mode6"] == "Debug":
+                try:
+                    username = str(Parameters["Mode1"])
+                    password = str(Parameters["Mode2"])
+
+                    url = "http://"
+                    if username and password:
+                        url += username + ':' + password + '@'
+                    if self.IsItLK3:
+                        url += str(Parameters["Address"]) + '/xml/ix.xml'
+                    else:
+                        url += str(Parameters["Address"]) + '/st0.xml'
+                    if Parameters["Mode6"] == "Debug":
+                        Domoticz.Log("Connect via wget to website: " + url)
+                    st0 = subprocess.check_output(['bash', '-c', 'wget -q -O - ' + url], cwd=Parameters["HomeFolder"])
+                    st0 = str(st0.decode('utf-8'))
+                    if Parameters["Mode6"] == 'Debug':
+                        Domoticz.Debug(st0[:30] + " .... " + st0[-30:])
+                    st0 = xmltodict.parse(st0)
+                    st0 = st0['response']
+
+                    if Parameters["Mode6"] == "Debug":
+                        Domoticz.Log("st0.xml :")
+                        for x in st0.keys():
+                            Domoticz.Log(str(x) + " => " + str(st0[x]))
+
+                    if not self.IsItLK3:
+                        # check flag ReverseOutStateDisable
+                        if "ReverseOutStateDisable" in self.KEY and self.KEY["ReverseOutStateDisable"] in st0:
+                            self.ReverseOutStateDisable = bool(int(st0[self.KEY["ReverseOutStateDisable"]]))
+                        else:
+                            Domoticz.Error("Key 'ReverseOutStateDisable' not found in response")
+                            self.onStart()
+
+                    for x in Parameters["Mode3"].split(';'):
+                        if int(list(st0.keys()).index(x) + 1) in Devices:
                             if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
-                                Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
-                                    format(float(st0[x]) / 10, '.1f')))
+                                Domoticz.Debug(str(st0))
+                                UpdateDevice(list(st0.keys()).index(x) + 1, 0, str(format(float(st0[x]) / 10, '.1f')))
                             elif self.KEY[x] == "Switch":
-                                Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
-                                    float(st0[x])))
+                                if self.ReverseOutStateDisable:
+                                    st0[x] = str(int(not int(st0[x])))
+                                UpdateDevice(list(st0.keys()).index(x) + 1, int(st0[x]), str(st0[x]))
+
+                            if Parameters["Mode6"] == "Debug":
+                                if self.KEY[x] == "Temperature" or self.KEY[x] == "Voltage":
+                                    Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
+                                        format(float(st0[x]) / 10, '.1f')))
+                                elif self.KEY[x] == "Switch":
+                                    Domoticz.Log("Update Unit=" + str(list(st0.keys()).index(x) + 1) + " Value=" + str(
+                                        float(st0[x])))
+                except Exception as e:
+                    Domoticz.Error(f"onHeartbeat failed: {e}")
             self.pollCount = 0 #Reset Pollcount
         else:
             self.pollCount += 1
